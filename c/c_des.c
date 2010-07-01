@@ -1,9 +1,12 @@
 // Simple, thoroughly commented implementation of DES / Triple DES in C
 // Chris Hulbert - chris.hulbert@gmail.com - http://splinter.com.au/blog
 // See http://orlingrabbe.com/des.htm for a great des description
+// To compile this with Visual C, simply do: cl c_des.c
 
 #include <stdio.h>
 
+typedef unsigned char byte;
+ 
 // Does the DES PC1 permutation, taking a 64 bit key and converting it to 56 bits
 // To test the PC1 permutation:
 // Example: From the original 64-bit key
@@ -14,7 +17,7 @@
 //    = 11110000 11001100 10101010 11110101 01010110 01100111 10001111
 //    = f0       cc       aa       f5       56       67       8f
 // And it does in fact work!
-void PC1(const uint8 *k, uint8 *k56)
+void PC1(const byte *k, byte *k56)
 {
   k56[0] =  (((k[7]>>7)&1)<<7) +  (((k[6]>>7)&1)<<6) +  (((k[5]>>7)&1)<<5) +  (((k[4]>>7)&1)<<4) +  (((k[3]>>7)&1)<<3) +  (((k[2]>>7)&1)<<2) +  (((k[1]>>7)&1)<<1) +  (((k[0]>>7)&1)<<0);
   k56[1] =  (((k[7]>>6)&1)<<7) +  (((k[6]>>6)&1)<<6) +  (((k[5]>>6)&1)<<5) +  (((k[4]>>6)&1)<<4) +  (((k[3]>>6)&1)<<3) +  (((k[2]>>6)&1)<<2) +  (((k[1]>>6)&1)<<1) +  (((k[0]>>6)&1)<<0);
@@ -26,7 +29,7 @@ void PC1(const uint8 *k, uint8 *k56)
 }
 
 // Does the DES PC2 permutation, taking a 56bit CnDn and returning a 48bit Kn 
-void PC2(const uint8 *in, uint8 *out)
+void PC2(const byte *in, byte *out)
 {
   out[0] =  (((in[1]>>2)&1)<<7) +   (((in[2]>>7)&1)<<6) +   (((in[1]>>5)&1)<<5) +   (((in[2]>>0)&1)<<4) +   (((in[0]>>7)&1)<<3) +   (((in[0]>>3)&1)<<2) +   (((in[0]>>5)&1)<<1) +   (((in[3]>>4)&1)<<0);
   out[1] =  (((in[1]>>1)&1)<<7) +   (((in[0]>>2)&1)<<6) +   (((in[2]>>3)&1)<<5) +   (((in[1]>>6)&1)<<4) +   (((in[2]>>1)&1)<<3) +   (((in[2]>>5)&1)<<2) +   (((in[1]>>4)&1)<<1) +   (((in[0]>>4)&1)<<0);
@@ -41,7 +44,7 @@ void PC2(const uint8 *in, uint8 *out)
 //       = 0123456789ABCDEF      
 //    IP = 1100 1100 0000 0000 1100 1100 1111 1111 1111 0000 1010 1010 1111 0000 1010 1010
 //       = CC00CCFFF0AAF0AA
-void IP(const uint8 *in, uint8 *out)
+void IP(const byte *in, byte *out)
 {
   out[0] =  (((in[7]>>6)&1)<<7) +   (((in[6]>>6)&1)<<6) +   (((in[5]>>6)&1)<<5) +   (((in[4]>>6)&1)<<4) +   (((in[3]>>6)&1)<<3) +   (((in[2]>>6)&1)<<2) +   (((in[1]>>6)&1)<<1) +   (((in[0]>>6)&1)<<0);
   out[1] =  (((in[7]>>4)&1)<<7) +   (((in[6]>>4)&1)<<6) +   (((in[5]>>4)&1)<<5) +   (((in[4]>>4)&1)<<4) +   (((in[3]>>4)&1)<<3) +   (((in[2]>>4)&1)<<2) +   (((in[1]>>4)&1)<<1) +   (((in[0]>>4)&1)<<0);
@@ -54,7 +57,7 @@ void IP(const uint8 *in, uint8 *out)
 }
 
 // Does the IP-1 after the encryption rounds
-void IPreverse(const uint8 *in, uint8 *out)
+void IPreverse(const byte *in, byte *out)
 {
   out[0] =  (((in[4]>>0)&1)<<7) +   (((in[0]>>0)&1)<<6) +   (((in[5]>>0)&1)<<5) +   (((in[1]>>0)&1)<<4) +   (((in[6]>>0)&1)<<3) +   (((in[2]>>0)&1)<<2) +   (((in[7]>>0)&1)<<1) +   (((in[3]>>0)&1)<<0);
   out[1] =  (((in[4]>>1)&1)<<7) +   (((in[0]>>1)&1)<<6) +   (((in[5]>>1)&1)<<5) +   (((in[1]>>1)&1)<<4) +   (((in[6]>>1)&1)<<3) +   (((in[2]>>1)&1)<<2) +   (((in[7]>>1)&1)<<1) +   (((in[3]>>1)&1)<<0);
@@ -71,7 +74,7 @@ void IPreverse(const uint8 *in, uint8 *out)
 // Eg: R0 = 1111 0000 1010 1010 1111 0000 1010 1010 
 //  E(R0) = 011110 100001 010101 010101 011110 100001 010101 010101
 // F0AAF0AA => 7A15557A1555
-void E(const uint8 *in, uint8 *out)
+void E(const byte *in, byte *out)
 {
   out[0] =  (((in[3]>>0)&1)<<7) +   (((in[0]>>7)&1)<<6) +   (((in[0]>>6)&1)<<5) +   (((in[0]>>5)&1)<<4) +   (((in[0]>>4)&1)<<3) +   (((in[0]>>3)&1)<<2) +   (((in[0]>>4)&1)<<1) +   (((in[0]>>3)&1)<<0);
   out[1] =  (((in[0]>>2)&1)<<7) +   (((in[0]>>1)&1)<<6) +   (((in[0]>>0)&1)<<5) +   (((in[1]>>7)&1)<<4) +   (((in[0]>>0)&1)<<3) +   (((in[1]>>7)&1)<<2) +   (((in[1]>>6)&1)<<1) +   (((in[1]>>5)&1)<<0);
@@ -85,7 +88,7 @@ void E(const uint8 *in, uint8 *out)
 // 32 bits in, 32 bits out
 // Eg: 0101 1100 1000 0010 1011 0101 1001 0111  => 0010 0011 0100 1010 1010 1001 1011 1011
 // 5C82B597 => 234AA9BB
-void P(const uint8 *in, uint8 *out)
+void P(const byte *in, byte *out)
 {
   out[0] =  (((in[1]>>0)&1)<<7) +   (((in[0]>>1)&1)<<6) +   (((in[2]>>4)&1)<<5) +   (((in[2]>>3)&1)<<4) +   (((in[3]>>3)&1)<<3) +   (((in[1]>>4)&1)<<2) +   (((in[3]>>4)&1)<<1) +   (((in[2]>>7)&1)<<0);
   out[1] =  (((in[0]>>7)&1)<<7) +   (((in[1]>>1)&1)<<6) +   (((in[2]>>1)&1)<<5) +   (((in[3]>>6)&1)<<4) +   (((in[0]>>3)&1)<<3) +   (((in[2]>>6)&1)<<2) +   (((in[3]>>1)&1)<<1) +   (((in[1]>>6)&1)<<0);
@@ -94,22 +97,26 @@ void P(const uint8 *in, uint8 *out)
 }
 
 // S-box lookups transformed so you don't have to figure out rows and columns
-uint8 S1[64]={  14, 0,  4,  15, 13, 7,  1,  4,  2,  14, 15, 2,  11, 13, 8,  1,  3,  10, 10, 6,  6,  12, 12, 11, 5,  9,  9,  5,  0,  3,  7,  8,  4,  15, 1,  12, 14, 8,  8,  2,  13, 4,  6,  9,  2,  1,  11, 7,  15, 5,  12, 11, 9,  3,  7,  14, 3,  10, 10, 0,  5,  6,  0,  13, };
-uint8 S2[64]={  15, 3,  1,  13, 8,  4,  14, 7,  6,  15, 11, 2,  3,  8,  4,  14, 9,  12, 7,  0,  2,  1,  13, 10, 12, 6,  0,  9,  5,  11, 10, 5,  0,  13, 14, 8,  7,  10, 11, 1,  10, 3,  4,  15, 13, 4,  1,  2,  5,  11, 8,  6,  12, 7,  6,  12, 9,  0,  3,  5,  2,  14, 15, 9,  };
-uint8 S3[64]={  10, 13, 0,  7,  9,  0,  14, 9,  6,  3,  3,  4,  15, 6,  5,  10, 1,  2,  13, 8,  12, 5,  7,  14, 11, 12, 4,  11, 2,  15, 8,  1,  13, 1,  6,  10, 4,  13, 9,  0,  8,  6,  15, 9,  3,  8,  0,  7,  11, 4,  1,  15, 2,  14, 12, 3,  5,  11, 10, 5,  14, 2,  7,  12, };
-uint8 S4[64]={  7,  13, 13, 8,  14, 11, 3,  5,  0,  6,  6,  15, 9,  0,  10, 3,  1,  4,  2,  7,  8,  2,  5,  12, 11, 1,  12, 10, 4,  14, 15, 9,  10, 3,  6,  15, 9,  0,  0,  6,  12, 10, 11, 1,  7,  13, 13, 8,  15, 9,  1,  4,  3,  5,  14, 11, 5,  12, 2,  7,  8,  2,  4,  14, };
-uint8 S5[64]={  2,  14, 12, 11, 4,  2,  1,  12, 7,  4,  10, 7,  11, 13, 6,  1,  8,  5,  5,  0,  3,  15, 15, 10, 13, 3,  0,  9,  14, 8,  9,  6,  4,  11, 2,  8,  1,  12, 11, 7,  10, 1,  13, 14, 7,  2,  8,  13, 15, 6,  9,  15, 12, 0,  5,  9,  6,  10, 3,  4,  0,  5,  14, 3,  };
-uint8 S6[64]={  12, 10, 1,  15, 10, 4,  15, 2,  9,  7,  2,  12, 6,  9,  8,  5,  0,  6,  13, 1,  3,  13, 4,  14, 14, 0,  7,  11, 5,  3,  11, 8,  9,  4,  14, 3,  15, 2,  5,  12, 2,  9,  8,  5,  12, 15, 3,  10, 7,  11, 0,  14, 4,  1,  10, 7,  1,  6,  13, 0,  11, 8,  6,  13, };
-uint8 S7[64]={  4,  13, 11, 0,  2,  11, 14, 7,  15, 4,  0,  9,  8,  1,  13, 10, 3,  14, 12, 3,  9,  5,  7,  12, 5,  2,  10, 15, 6,  8,  1,  6,  1,  6,  4,  11, 11, 13, 13, 8,  12, 1,  3,  4,  7,  10, 14, 7,  10, 9,  15, 5,  6,  0,  8,  15, 0,  14, 5,  2,  9,  3,  2,  12, };
-uint8 S8[64]={  13, 1,  2,  15, 8,  13, 4,  8,  6,  10, 15, 3,  11, 7,  1,  4,  10, 12, 9,  5,  3,  6,  14, 11, 5,  0,  0,  14, 12, 9,  7,  2,  7,  2,  11, 1,  4,  14, 1,  7,  9,  4,  12, 10, 14, 8,  2,  13, 0,  15, 6,  12, 10, 9,  13, 0,  15, 3,  3,  5,  5,  6,  8,  11, };
+byte S1[64]={  14, 0,  4,  15, 13, 7,  1,  4,  2,  14, 15, 2,  11, 13, 8,  1,  3,  10, 10, 6,  6,  12, 12, 11, 5,  9,  9,  5,  0,  3,  7,  8,  4,  15, 1,  12, 14, 8,  8,  2,  13, 4,  6,  9,  2,  1,  11, 7,  15, 5,  12, 11, 9,  3,  7,  14, 3,  10, 10, 0,  5,  6,  0,  13, };
+byte S2[64]={  15, 3,  1,  13, 8,  4,  14, 7,  6,  15, 11, 2,  3,  8,  4,  14, 9,  12, 7,  0,  2,  1,  13, 10, 12, 6,  0,  9,  5,  11, 10, 5,  0,  13, 14, 8,  7,  10, 11, 1,  10, 3,  4,  15, 13, 4,  1,  2,  5,  11, 8,  6,  12, 7,  6,  12, 9,  0,  3,  5,  2,  14, 15, 9,  };
+byte S3[64]={  10, 13, 0,  7,  9,  0,  14, 9,  6,  3,  3,  4,  15, 6,  5,  10, 1,  2,  13, 8,  12, 5,  7,  14, 11, 12, 4,  11, 2,  15, 8,  1,  13, 1,  6,  10, 4,  13, 9,  0,  8,  6,  15, 9,  3,  8,  0,  7,  11, 4,  1,  15, 2,  14, 12, 3,  5,  11, 10, 5,  14, 2,  7,  12, };
+byte S4[64]={  7,  13, 13, 8,  14, 11, 3,  5,  0,  6,  6,  15, 9,  0,  10, 3,  1,  4,  2,  7,  8,  2,  5,  12, 11, 1,  12, 10, 4,  14, 15, 9,  10, 3,  6,  15, 9,  0,  0,  6,  12, 10, 11, 1,  7,  13, 13, 8,  15, 9,  1,  4,  3,  5,  14, 11, 5,  12, 2,  7,  8,  2,  4,  14, };
+byte S5[64]={  2,  14, 12, 11, 4,  2,  1,  12, 7,  4,  10, 7,  11, 13, 6,  1,  8,  5,  5,  0,  3,  15, 15, 10, 13, 3,  0,  9,  14, 8,  9,  6,  4,  11, 2,  8,  1,  12, 11, 7,  10, 1,  13, 14, 7,  2,  8,  13, 15, 6,  9,  15, 12, 0,  5,  9,  6,  10, 3,  4,  0,  5,  14, 3,  };
+byte S6[64]={  12, 10, 1,  15, 10, 4,  15, 2,  9,  7,  2,  12, 6,  9,  8,  5,  0,  6,  13, 1,  3,  13, 4,  14, 14, 0,  7,  11, 5,  3,  11, 8,  9,  4,  14, 3,  15, 2,  5,  12, 2,  9,  8,  5,  12, 15, 3,  10, 7,  11, 0,  14, 4,  1,  10, 7,  1,  6,  13, 0,  11, 8,  6,  13, };
+byte S7[64]={  4,  13, 11, 0,  2,  11, 14, 7,  15, 4,  0,  9,  8,  1,  13, 10, 3,  14, 12, 3,  9,  5,  7,  12, 5,  2,  10, 15, 6,  8,  1,  6,  1,  6,  4,  11, 11, 13, 13, 8,  12, 1,  3,  4,  7,  10, 14, 7,  10, 9,  15, 5,  6,  0,  8,  15, 0,  14, 5,  2,  9,  3,  2,  12, };
+byte S8[64]={  13, 1,  2,  15, 8,  13, 4,  8,  6,  10, 15, 3,  11, 7,  1,  4,  10, 12, 9,  5,  3,  6,  14, 11, 5,  0,  0,  14, 12, 9,  7,  2,  7,  2,  11, 1,  4,  14, 1,  7,  9,  4,  12, 10, 14, 8,  2,  13, 0,  15, 6,  12, 10, 9,  13, 0,  15, 3,  3,  5,  5,  6,  8,  11, };
 
 // Takes 32 bits input, 48 bits key Kn, gives 32 bits output
 // Does: P(S(Kn ^ E(R))), where R = in = R(n-1)
-void F(const uint8 *in,const uint8 *Kn,uint8 *out)
+void F(const byte *in,const byte *Kn,byte *out)
 {
+  byte e[6]; // Expanded to 48 bits
+  byte b1,b2,b3,b4,b5,b6,b7,b8; // Split into groups of 6 bits
+  byte s[4]; // Back into 32bits after the s-box
+  
   // Expand using E to 48 bits
-  uint8 e[6];
   E(in,e);
+  
   // Now XOR the output of E with the key Kn
   e[0] ^= Kn[0];
   e[1] ^= Kn[1];
@@ -122,17 +129,16 @@ void F(const uint8 *in,const uint8 *Kn,uint8 *out)
   // i: 11111111 11111111 11111111 11111111 11111111 11111111
   // e:  0           1       2        3         4       5
   // b: 11111122 22223333 33444444 55555566 66667777 77888888    
-  uint8 b1 = e[0]>>2;
-  uint8 b2 = ((e[0]&3)<<4) + (e[1]>>4);
-  uint8 b3 = ((e[1]&15)<<2) + (e[2]>>6);
-  uint8 b4 = e[2]&63;
-  uint8 b5 = e[3]>>2;
-  uint8 b6 = ((e[3]&3)<<4) + (e[4]>>4);
-  uint8 b7 = ((e[4]&15)<<2) + (e[5]>>6);
-  uint8 b8 = e[5]&63;
+  b1 = e[0]>>2;
+  b2 = ((e[0]&3)<<4) + (e[1]>>4);
+  b3 = ((e[1]&15)<<2) + (e[2]>>6);
+  b4 = e[2]&63;
+  b5 = e[3]>>2;
+  b6 = ((e[3]&3)<<4) + (e[4]>>4);
+  b7 = ((e[4]&15)<<2) + (e[5]>>6);
+  b8 = e[5]&63;
   
-  // Now do the 'S box' lookup
-  uint8 s[4]; // output of the s box lookup
+  // Now do the 'S box' lookup and return it to 32 bits
   s[0] = (S1[b1]<<4) + S2[b2];
   s[1] = (S3[b3]<<4) + S4[b4];
   s[2] = (S5[b5]<<4) + S6[b6];
@@ -152,7 +158,7 @@ void F(const uint8 *in,const uint8 *Kn,uint8 *out)
 //           [0]      [1]      [2]      [3]      [4]      [5]      [6]
 // out: 11100001 10011001 01010101 11111010 10101100 11001111 00011110
 //         e1      99        55       fa     ac         cf       1e
-void cd_left_shift1(const uint8 *in,uint8 *out)
+void cd_left_shift1(const byte *in,byte *out)
 {
   // C
   out[0]=(in[0]<<1) + (in[1]>>7);
@@ -176,7 +182,7 @@ void cd_left_shift1(const uint8 *in,uint8 *out)
 // C3 = 00001100 11001010 10101111 1111
 // D3 =                                0101 01100110 01111000 11110101
 // 
-void cd_left_shift2(const uint8 *in,uint8 *out)
+void cd_left_shift2(const byte *in,byte *out)
 {
   // C
   out[0]=(in[0]<<2) + (in[1]>>6);
@@ -192,22 +198,33 @@ void cd_left_shift2(const uint8 *in,uint8 *out)
   out[6]=(in[6]<<2) + ((in[3]>>2)&3);
 }
 
-
-// Takes a 64-bit message and key, encrypt=1 encrypts, 0 decrypts, outputs 64 bits to out
-void DES(uint8 *m, uint8 *k, int encrypt, uint8*out)
+// Takes a 64-bit message and key
+// If encrypt=1 it encrypts, otherwise decrypts
+// Outputs 64 bits to out
+void DES(byte *m, byte *k, int encrypt, byte*out)
 {
-  // See http://orlingrabbe.com/des.htm for des description
+  typedef struct cd { // C and D sides of a subkey together in one structure
+    byte bytes[7];
+  } cd; 
+  typedef struct kn { // A single subkey  
+    byte bytes[6];
+  } kn;
+  cd cds[16];    // The Cd sSuch that C0D0 = k56, C1D1=cds[0], C16D16=cds[15]
+  kn keys_k[16]; // The Kn keys output from PC2, Such that K1 = keys_k[0], etc
+  int perm_i;    // Counter for making the Kn keys
+  byte k56[7];   // The PC1 permutation
+  byte ip[8];    // Output of performing the IP on m
+  byte lold[4],rold[4]; // The previous left and right sides of the current state
+  byte lnew[4],rnew[4]; // The new l & r sides of the state
+  int f_i,f_i_start,f_i_end,f_i_dir; // To keep track of the iterations and their order
+  byte RLfinal[8]; // The final reversed order of the sides after the 16 iterations
+
   // Step 1: Create 16 subkeys, each of which is 48-bits long
   
   // Get the 56-bit PC1 permutation
-  uint8 k56[7];
   PC1(k,k56);
 
   // Do the left shifts
-  typedef struct cd {
-    uint8 bytes[7];
-  } cd;
-  cd cds[16]; // Such that C0D0 = k56, C1D1=cds[0], C16D16=cds[15]
   cd_left_shift1(k56, cds[0].bytes); // Iteration 1
   cd_left_shift1(cds[0].bytes, cds[1].bytes); // Iter 2
   cd_left_shift2(cds[1].bytes, cds[2].bytes); // Iter 3
@@ -226,26 +243,17 @@ void DES(uint8 *m, uint8 *k, int encrypt, uint8*out)
   cd_left_shift1(cds[14].bytes, cds[15].bytes); // Iter 16
   
   // Form the Keys Kn (1<=n<=16) by applying permutation PC2
-  typedef struct kn {
-    uint8 bytes[6];
-  } kn;
-  kn keys_k[16]; // Such that K1 = keys_k[0], etc
-  int perm_i;
   for (perm_i=0;perm_i<16;perm_i++) // Do the PC2 perms
     PC2(cds[perm_i].bytes,keys_k[perm_i].bytes);
   
   // Step 2: Encode each 64-bit block of data
-  uint8 ip[8];
-  IP(m,ip); // Tested: WORKS
+  IP(m,ip);
   
   // Split it left and right
-  uint8 lold[4],rold[4];
   memcpy (lold,ip,4);
-  memcpy (rold,ip+4,4); // Tested: WORKS
+  memcpy (rold,ip+4,4);
 
   // 16 Iterations
-  uint8 lnew[4],rnew[4];
-  int f_i,f_i_start,f_i_end,f_i_dir;
   if (encrypt) {f_i_start=0;f_i_end=16;f_i_dir=1;} // Encrypting
   else {f_i_start=15;f_i_end=-1;f_i_dir=-1;} // Decrypting
   for (f_i=f_i_start; f_i!=f_i_end; f_i+=f_i_dir)
@@ -264,50 +272,49 @@ void DES(uint8 *m, uint8 *k, int encrypt, uint8*out)
   }
   
   // Reverse the orders for the final block
-  uint8 RLfinal[8];
   memcpy(RLfinal,rnew,4);
   memcpy(RLfinal+4,lnew,4);
   
   // Apply final perm
   IPreverse(RLfinal,out);
 }
-void DesEncrypt(uint8 *m, uint8 *k, uint8*out)
+void DesEncrypt(byte *m, byte *k, byte*out)
 {
   DES(m,k,1,out);
 }
-void DesDecrypt(uint8 *m, uint8 *k, uint8*out)
+void DesDecrypt(byte *m, byte *k, byte*out)
 {
   DES(m,k,0,out);
 }
 
 // Apply a variant in-place to a key 
 // k is the key, len is the length in bytes of the key
-void ApplyVariant(uint8 *k, int len, uint8 variantA, uint8 variantB)
+void ApplyVariant(byte *k, int len, byte variantA, byte variantB)
 {
   int i;
   for (i=0;i<len;i++)
     k[i] ^= ((i%2==0) ? variantA : variantB);
 }
 
-void ShowHex(uint8* b,int len,int line)
+// Output a key (or any smallish buffer) onto screen as hex
+void ShowHex(byte* b,int len,char* label)
 {
-  // Display debugging stuff
   char out[100],i;
   for (i=0;i<len;i++)
     sprintf(out+i*2,"%02x",b[i]);
 
-  printf("%s\r\n",line);
+  printf("%s%s\r\n",label, out);
 }
 
 // Encrypts the message under CBC mode
 // Message length must be a multiple of 64 bits (8 bytes)
 // Key must be 128 bits (16 bytes)
 // Output must be the same length as the input
-void TripleDesEncryptCBC(uint8 *m, int msg_len, uint8 *k, uint8 *out)
+void TripleDesEncryptCBC(byte *m, int msg_len, byte *k, byte *out)
 {
   int i,j,blocks = msg_len/8;
-  uint8 temp1[8],temp2[8],temp3[8];
-  uint8 vector[8]={0,0,0,0,0,0,0,0}; // init vector is all 0's
+  byte temp1[8],temp2[8],temp3[8];
+  byte vector[8]={0,0,0,0,0,0,0,0}; // init vector is all 0's
   for (i=0;i<blocks;i++)
   {
     // CBC mode: each block of plaintext is XORed with the previous ciphertext block
@@ -322,11 +329,12 @@ void TripleDesEncryptCBC(uint8 *m, int msg_len, uint8 *k, uint8 *out)
   }
 }
 
-void TripleDesDecryptCBC(uint8 *m, int msg_len, uint8 *k, uint8 *out)
+// Decrypts a multi-block message in CBC mode
+void TripleDesDecryptCBC(byte *m, int msg_len, byte *k, byte *out)
 {
   int i,j,blocks = msg_len/8;
-  uint8 temp1[8],temp2[8],temp3[8];
-  uint8 vector[8]={0,0,0,0,0,0,0,0}; // init vector is all 0's
+  byte temp1[8],temp2[8],temp3[8];
+  byte vector[8]={0,0,0,0,0,0,0,0}; // init vector is all 0's
   for (i=0;i<blocks;i++)
   {
     // Crypto this block
@@ -343,31 +351,28 @@ void TripleDesDecryptCBC(uint8 *m, int msg_len, uint8 *k, uint8 *out)
   }
 }
 
+// Test Triple DES (2-block CBC, with variant key)
 int main(void)
 {
-  printf("Crypto Test\r\n");
-  
-  // Now do multiblock 3des
-  // ECB means treat each block the same
-  // CBC is here: http://en.wikipedia.org/wiki/Block_cipher_modes_of_operation#Cipher-block_chaining_.28CBC.29
-  // What is the init vector for cbc? zeros i guess?
-  
   // Encrypt:
-  // Key 68ADDFD661150E8C1C102F6BA2A8754A => KI
+  // Key 68ADDFD661150E8C1C102F6BA2A8754A 
   // Variant 44c0
   // Mode CBC
-  // Data BF54499D8F3E8A49A134BC5875C14679 => KCA
-  // This should result in: 11B96C137EF10B7F 5343E70402E0A7F3 => eKI44(KCA)
+  // Data BF54499D8F3E8A49A134BC5875C14679
+  // This should result in: 11B96C137EF10B7F5343E70402E0A7F3
 
-  uint8 k_3des[16] = {0x68,0xAD,0xDF,0xD6,0x61,0x15,0x0E,0x8C, 0x1C,0x10,0x2F,0x6B,0xA2,0xA8,0x75,0x4A};
-  uint8 m_3des[16] = {0xBF,0x54,0x49,0x9D,0x8F,0x3E,0x8A,0x49, 0xA1,0x34,0xBC,0x58,0x75,0xC1,0x46,0x79};
-  uint8 c_3des[16] = {0x11,0xB9,0x6C,0x13,0x7E,0xF1,0x0B,0x7F, 0x53,0x43,0xE7,0x04,0x02,0xE0,0xA7,0xF3};
-  uint8 out[16];
+  byte k_3des[16] = {0x68,0xAD,0xDF,0xD6,0x61,0x15,0x0E,0x8C, 0x1C,0x10,0x2F,0x6B,0xA2,0xA8,0x75,0x4A};
+  byte m_3des[16] = {0xBF,0x54,0x49,0x9D,0x8F,0x3E,0x8A,0x49, 0xA1,0x34,0xBC,0x58,0x75,0xC1,0x46,0x79};
+  byte encrypted[16], decrypted[16];
+
+  printf("Test Triple DES (2-block CBC, with variant key)\r\n\n");
+
+  ShowHex(k_3des,16,"Key:         ");
   ApplyVariant(k_3des,16,0x44,0xC0);
-  
-  TripleDesEncryptCBC(m_3des,sizeof(m_3des),k_3des,out);
-  TripleDesDecryptCBC(c_3des,sizeof(c_3des),k_3des,out);
-
-  ShowHex(out,8,3);
-  ShowHex(out+8,8,4);
+  ShowHex(k_3des,16,"Variant key: ");
+  ShowHex(m_3des,16,"Original:    ");
+  TripleDesEncryptCBC(m_3des,sizeof(m_3des),k_3des,encrypted);
+  ShowHex(encrypted,16,"Encrypted:   ");
+  TripleDesDecryptCBC(encrypted,sizeof(encrypted),k_3des,decrypted);
+  ShowHex(decrypted,16,"Decrypted:   ");
 }
