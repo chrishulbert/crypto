@@ -9,10 +9,10 @@ Documents
 ---------
 Documentation is in here, as well as on my scribd account:
 
-http://www.scribd.com/doc/33686967/How-to-Implement-AES-in-Ruby
+* [How to Implement AES in Ruby](http://www.scribd.com/doc/33686967/How-to-Implement-AES-in-Ruby)
 
 Blog
 ----
 I also have these tutorials on my blog:
 
-http://splinter.com.au/blog
+* [http://splinter.com.au/blog](http://splinter.com.au/blog)
