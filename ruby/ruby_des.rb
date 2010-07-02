@@ -170,7 +170,7 @@ class Array
   end
   
   # split this array into two halves
-  def halves
+  def split
     [self[0,self.length/2], self[self.length/2,self.length/2]]
   end
   
@@ -225,34 +225,15 @@ end
 
 # Performs the shifts to produce CnDn
 def shifts(c0,d0)
+  cn, dn = [c0], [d0]
   # This is the schedule of shifts. Each CnDn is produced by shifting the previous by 1 or 2 bits
-  shift_numbers = %w"
-    1
-    1
-    2
-    2
-    2
-    2
-    2
-    2
-    1
-    2
-    2
-    2
-    2
-    2
-    2
-    1"
-  last_c, last_d = c0, d0
-  shift_numbers.map{|n|
-    # Shift C and D left the correct number of bits for this round
-    new_c = last_c.left(n.to_i) 
-    new_d = last_d.left(n.to_i)
-    last_c = new_c
-    last_d = new_d
-    # Output is the C and D for this round joined
-    new_c + new_d
+  [1,1,2,2,2,2,2,2,1,2,2,2,2,2,2,1].each{|n|
+    cn << cn.last.left(n)
+    dn << dn.last.left(n)
   }
+  cdn=[]
+  cn.zip(dn) {|c,d| cdn << (c+d)} # Concatenate the c's and d's to produce CDn
+  cdn
 end
 
 # The 'f' function as used in the encryption rounds
@@ -269,23 +250,90 @@ def f(r,k)
   s.perm_p      # Calculate P(S1..S8)
 end
 
+# Take a 64 bit key, and return all the subkeys K0..K16
+def expand(k)
+  kplus = k.pc1 # Run the key through PC1 to give us "K+"
+  c0, d0 = kplus.split # Split K+ into C0D0
+  cdn = shifts(c0, d0)  # Do the shifts to give us CnDn
+  cdn.map{|cd| cd.pc2} # For each CnDn, run it through PC2 to give us "Kn"
+end
+
+# Take a 8 byte message and the expanded keys, and des encrypt it
+def des_encrypt(m,keys)
+  ip = m.ip          # Run it through the IP permutation
+  l, r = ip.split    # Split it to give us L0R0
+  (1..16).each { |i| # Run the encryption rounds
+    l, r = r, l.xor(f(r,keys[i])) # L => R,  R => L + f(Rn-1,Kn)
+  }
+  rl = r + l        # Swap and concatenate the two sides into R16L16
+  c = rl.ip_inverse # Run IP-1(R16L16) to give the final "c" cryptotext
+end
+
+# Take a 8 byte message and the expanded keys, and des decrypt it
+def des_decrypt(m,keys)
+  ip = m.ip          # Run it through the IP permutation
+  l, r = ip.split    # Split it to give us L0R0
+  (1..16).to_a.reverse.each { |i| # Run the encryption rounds
+    l, r = r, l.xor(f(r,keys[i])) # L => R,  R => L + f(Rn-1,Kn)
+  }
+  rl = r + l        # Swap and concatenate the two sides into R16L16
+  c = rl.ip_inverse # Run IP-1(R16L16) to give the final "c" cryptotext
+end
+
+# Takes a 128-bit TripleDES key, and encrypts a 64-bit message with it
+def tripledes_encrypt(m, key)
+  key_a, key_b = key.split   # Split the 128-bit TripleDES key into two DES keys
+  keys_a = expand(key_a)     # Expand the two DES keys
+  keys_b = expand(key_b)
+  c = des_encrypt(m, keys_a) # Encrypt by the first key
+  c = des_decrypt(c, keys_b) # Decrypt by the second key
+  c = des_encrypt(c, keys_a) # Encrypt by the first key again
+end
+
+# Takes a 128-bit TripleDES key, and decrypts a 64-bit message with it
+def tripledes_decrypt(c, key)
+  key_a, key_b = key.split   # Split the 128-bit TripleDES key into two DES keys
+  keys_a = expand(key_a)     # Expand the two DES keys
+  keys_b = expand(key_b)
+  c = des_decrypt(c, keys_a) # Encrypt by the first key
+  c = des_encrypt(c, keys_b) # Decrypt by the second key
+  c = des_decrypt(c, keys_a) # Encrypt by the first key again
+end
+
 # Do the encryption here!
+puts "DES test"
+k = '00010011 00110100 01010111 01111001 10011011 10111100 11011111 11110001'.to_bits # This is the key
 
 # Step 1, make the subkeys
-k = '00010011 00110100 01010111 01111001 10011011 10111100 11011111 11110001'.to_bits # This is the key
-kplus = k.pc1 # Run the key through PC1 to give us "K+"
-c0, d0 = kplus.halves # Split K+ into C0D0
-cdn = shifts(c0, d0)  # Do the shifts to give us CnDn
-subkeys = cdn.map{|cd| cd.pc2} # For each CnDn, run it through PC2 to give us "Kn"
+subkeys = expand(k)
+puts "Key:        " + k.pretty(8)
+subkeys.each_with_index { |sk,i|
+  puts "Subkey  %2d: %s" % [i,sk.pretty(6)]
+}
+puts "Correct 16: 110010 110011 110110 001011 000011 100001 011111 110101"
 
 # Step 2, encode it
 m = '0000 0001 0010 0011 0100 0101 0110 0111 1000 1001 1010 1011 1100 1101 1110 1111'.to_bits # The message to encode
-ip = m.ip # Run it through the IP permutation
-l, r = ip.halves # Split it to give us L0R0
-(0..15).each { |i| # Run the encryption rounds
-  l, r = r, l.xor(f(r,subkeys[i])) # L => R,  R => L + f(Rn-1,Kn)
-}
-rl = r + l # Calculate R16L16
-c = rl.ip_inverse # Run IP-1(R16L16) to give the final "c" cryptotext
+puts "Message: " + m.pretty(8)
+c = des_encrypt(m,subkeys)
 
-puts c.pretty 8 # The output value
+puts "Encrypt: " + c.pretty(8) # The output value
+puts "Correct: " + "10000101 11101000 00010011 01010100 00001111 00001010 10110100 00000101"
+
+# Step 3, decode it
+d = des_decrypt(c,subkeys)
+puts "Decrypt: " + d.pretty(8) # The output value
+
+
+puts 'Triple-DES test'
+k3d = '00010001 00100010 00110011 01000100 01010101 01100110 01110111 10001001
+       10000111 10011000 01111001 01000101 00110101 00100001 00110101 01000100'.to_bits
+m3d = '00010010 00110100 01010110 01111000 10010000 10101011 11001101 11101111'.to_bits
+r3d = '00111010 00111010 11001110 01100101 00001101 10110011 10111011 11011100'.to_bits
+e = tripledes_encrypt(m3d,k3d)
+puts "Triple Des Message: " + m3d.pretty(8)
+puts "Triple Des Encrypt: " + e.pretty(8)
+puts "Triple Des Desired: " + r3d.pretty(8)
+d = tripledes_decrypt(e,k3d)
+puts "Triple Des Decrypt: " + d.pretty(8)
+puts "Triple Des Desired: " + m3d.pretty(8)
