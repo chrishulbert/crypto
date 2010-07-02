@@ -3,10 +3,13 @@
 # Reference: http://orlingrabbe.com/des.htm
 
 class Array
+  # Perform a bitwise permutation on the current array, using the passed permutation table
   def perm(table)
     table.split(' ').map{ |bit| self[bit.to_i-1] }
   end
 
+  # Perform the PC1 permutation on the current array
+  # This is used to take the original 64 bit key "K" and return 56 bits "K+"
   def pc1
     perm "
       57   49    41   33    25    17    9
@@ -19,6 +22,9 @@ class Array
       21   13     5   28    20    12    4 "
   end
   
+  # Perform the PC2 permutation on the current array
+  # This is used on each of the 56 bit "CnDn" concatenated pairs to produce 
+  # each of the 48 bit "Kn" keys
   def pc2
     perm "
       14    17   11    24     1    5
@@ -31,6 +37,9 @@ class Array
       46    42   50    36    29   32"
   end
   
+  # This performs the initial permutation aka "IP"
+  # This is the first thing applied to the 64 bit message "M" to give us "IP"
+  # Inputs 64 bits, outputs 64 bits
   def ip
     perm "
       58    50   42    34    26   18    10    2
@@ -43,6 +52,9 @@ class Array
       63    55   47    39    31   23    15    7"
   end
   
+  # This is the E-Bit selection table
+  # It inputs 32 bits and outputs 48 bits
+  # This is used in the 'f' function to calculate "E(Rn-1)" on each of the rounds
   def e_bits
     perm "
       32     1    2     3     4    5
@@ -55,6 +67,9 @@ class Array
       28    29   30    31    32    1"
   end
   
+  # The P permutation
+  # Inputs 32 bits, outputs 32 bits
+  # At the end of the 'f' function, this is run on the concatenated results of the s-boxes
   def perm_p
     perm "
       16   7  20  21
@@ -67,6 +82,9 @@ class Array
       22  11   4  25"
   end
   
+  # The IP^-1 final permutation
+  # Inputs 64 bits, outputs 64 bits
+  # At the end of the rounds, this is run over "R16L16" to produce the final result
   def ip_inverse
     perm "
       40     8   48    16    56   24    64   32
@@ -79,6 +97,11 @@ class Array
       33     1   41     9    49   17    57   25"
   end
   
+  # The S-Box lookup
+  # This takes the 6 bits input and produces 4 bits output
+  # The 'b' variable is which s-box table to use
+  # This is used in the 'f' function. "Kn+E(Rn-1)" is calculated then split
+  # into 6-bit blocks B1..B8, each of which is passed through the s-box S1..S8
   def s_box(b)
     s_tables = "
                              S1
@@ -137,12 +160,13 @@ class Array
       7 11   4  1   9 12  14  2   0  6  10 13  15  3   5  8
       2  1  14  7   4 10   8 13  15 12   9  0   3  5   6 11
       "
+    # Find only the table they want
     s_table = s_tables[s_tables.index('S%d'%b)+3,999]
     s_table = s_table[0,s_table.index('S')] if s_table.index('S')
-    s_table = s_table.split(' ')
-    row = self.first*2 + self.last
-    col = self[1]*8 + self[2]*4 + self[3]*2 + self[4]
-    s_table[row*16+col].to_i.to_bits
+    s_table = s_table.split(' ')   # Convert from text to usable array
+    row = self.first*2 + self.last # The row is found from the first and last bits
+    col = self[1]*8 + self[2]*4 + self[3]*2 + self[4] # The column is from the middle 4 bits
+    s_table[row*16+col].to_i.to_bits # The correct value is looked up, then converted to 4 bits output
   end
   
   # split this array into two halves
@@ -184,6 +208,7 @@ class Array
 end
 
 class String
+  # Convert a "1010..." string into an array of bits
   def to_bits
     bitarr=[]
     self.each_char{|c| bitarr << c.to_i if c=='0' || c=='1'}
@@ -192,12 +217,15 @@ class String
 end
 
 class Integer
+  # Converts an integer into a 4-bit array, as used by the s-boxes
   def to_bits
     [self>>3, (self>>2)&1, (self>>1)&1, self&1]
   end
 end
 
+# Performs the shifts to produce CnDn
 def shifts(c0,d0)
+  # This is the schedule of shifts. Each CnDn is produced by shifting the previous by 1 or 2 bits
   shift_numbers = %w"
     1
     1
@@ -217,38 +245,47 @@ def shifts(c0,d0)
     1"
   last_c, last_d = c0, d0
   shift_numbers.map{|n|
-    new_c = last_c.left(n.to_i)
+    # Shift C and D left the correct number of bits for this round
+    new_c = last_c.left(n.to_i) 
     new_d = last_d.left(n.to_i)
     last_c = new_c
     last_d = new_d
+    # Output is the C and D for this round joined
     new_c + new_d
   }
 end
 
+# The 'f' function as used in the encryption rounds
+# For each round, we want: Rn = Ln-1 + f(Rn-1,Kn)
+# f(Rn-1,Kn) is to be calculated like this:
+# Kn + E(Rn-1) => B1..B8
+# f = P( S1(B1)..S8(B8) )
 def f(r,k)
-  e = r.e_bits
-  x = e.xor(k)
-  bs = x.split6
-  s = []
+  e = r.e_bits  # Calculate E(Rn-1)
+  x = e.xor(k)  # Calculate Kn + E(Rn-1)
+  bs = x.split6 # Split into B1..B8
+  s = []        # Concatenate S1(B1)..S8(B8)
   bs.each_with_index{|b,i| s += b.s_box(i+1)}
-  s.perm_p
+  s.perm_p      # Calculate P(S1..S8)
 end
 
+# Do the encryption here!
+
 # Step 1, make the subkeys
-k = '00010011 00110100 01010111 01111001 10011011 10111100 11011111 11110001'.to_bits
-kplus = k.pc1
-c0, d0 = kplus.halves
-cdn = shifts(c0, d0) # maybe just make this simpler?
-subkeys = cdn.map{|cd| cd.pc2}
+k = '00010011 00110100 01010111 01111001 10011011 10111100 11011111 11110001'.to_bits # This is the key
+kplus = k.pc1 # Run the key through PC1 to give us "K+"
+c0, d0 = kplus.halves # Split K+ into C0D0
+cdn = shifts(c0, d0)  # Do the shifts to give us CnDn
+subkeys = cdn.map{|cd| cd.pc2} # For each CnDn, run it through PC2 to give us "Kn"
 
 # Step 2, encode it
-m = '0000 0001 0010 0011 0100 0101 0110 0111 1000 1001 1010 1011 1100 1101 1110 1111'.to_bits
-ip = m.ip
-l, r = ip.halves
-(0..15).each { |i|
-  l, r = r, l.xor(f(r,subkeys[i]))
+m = '0000 0001 0010 0011 0100 0101 0110 0111 1000 1001 1010 1011 1100 1101 1110 1111'.to_bits # The message to encode
+ip = m.ip # Run it through the IP permutation
+l, r = ip.halves # Split it to give us L0R0
+(0..15).each { |i| # Run the encryption rounds
+  l, r = r, l.xor(f(r,subkeys[i])) # L => R,  R => L + f(Rn-1,Kn)
 }
-rl = r + l
-c = rl.ip_inverse
+rl = r + l # Calculate R16L16
+c = rl.ip_inverse # Run IP-1(R16L16) to give the final "c" cryptotext
 
-puts c.pretty 8
+puts c.pretty 8 # The output value
