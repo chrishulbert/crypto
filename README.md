@@ -10,6 +10,7 @@ Documents
 Documentation is in here, as well as on my scribd account:
 
 * [How to Implement AES in Ruby](http://www.scribd.com/doc/33686967/How-to-Implement-AES-in-Ruby)
+* [How to Implement DES in Ruby](http://www.scribd.com/doc/33810102/How-to-Implement-DES-in-Ruby)
 
 Blog
 ----
