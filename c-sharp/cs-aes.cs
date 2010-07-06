@@ -1,4 +1,4 @@
-// Simple, thoroughly commented implementation of 128-bit AES / Rijndael using C
+// Simple, thoroughly commented implementation of 128-bit AES / Rijndael using C#
 // Chris Hulbert - chris.hulbert@gmail.com - http://splinter.com.au/blog - http://github.com/chrishulbert/crypto
 // References:
 // http://en.wikipedia.org/wiki/Advanced_Encryption_Standard
