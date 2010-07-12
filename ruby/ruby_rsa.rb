@@ -1,6 +1,7 @@
 # Simple, thoroughly commented implementation of RSA using Ruby
 # Chris Hulbert - chris.hulbert@gmail.com - http://splinter.com.au/blog
-# Reference: http://orlingrabbe.com/des.htm
+# http://github.com/chrishulbert/crypto
+# Reference: http://islab.oregonstate.edu/koc/ece575/02Project/Mor/
 
 # Firstly, here's some boring math code to do a primality test
 # http://en.wikipedia.org/wiki/Miller-Rabin_primality_test
