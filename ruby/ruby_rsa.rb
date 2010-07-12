@@ -116,7 +116,7 @@ d = get_d(p,q,e)
 
 puts "Exponent:\r\n %x" % e
 puts "Public key (n):\r\n %x" % n
-puts "Private key (d):\r\n %d" % d
+puts "Private key (d):\r\n %x" % d
 
 # Lets encrypt a message using e and n:
 m = str_to_bignum("This is going to be embarrasing if it doesn't work!")
