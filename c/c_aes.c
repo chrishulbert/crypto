@@ -7,6 +7,7 @@
 // http://en.wikipedia.org/wiki/Rijndael_S-box
 
 #include <stdio.h>
+#include <string.h>
 
 typedef unsigned char byte;
  
@@ -25,8 +26,7 @@ byte lookup_g14 []={0x00,0x0e,0x1c,0x12,0x38,0x36,0x24,0x2a,0x70,0x7e,0x6c,0x62,
 
 // Xor's all elements in a n byte array a by b
 void xor(byte *a, byte *b, int n) {
-  int i;
-  for (i=0;i<n;i++)
+  for (int i=0;i<n;i++)
     a[i] ^= b[i];
 }
 
