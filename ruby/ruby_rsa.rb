@@ -122,6 +122,7 @@ puts "Private key (d):\r\n %x" % d
 m = str_to_bignum("This is going to be embarrasing if it doesn't work!")
 c = mod_pow(m,e,n) # Encrypting is: c = m^e mod n
 puts "Message:\r\n " + bignum_to_str(m)
+puts "Message hex:\r\n %x" % m
 puts "Encrypted:\r\n %x" % c
 
 # Now decrypt it using d and n:
