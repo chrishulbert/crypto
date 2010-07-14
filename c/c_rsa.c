@@ -1,8 +1,10 @@
 // Simple, thoroughly commented implementation of RSA in C
 // Chris Hulbert - chris.hulbert@gmail.com - http://splinter.com.au/blog
 
-#include <stdio.h>
-#include <string.h>
+#include <stdio.h>  // For printf
+#include <string.h> // For memset,memcpy
+#include <stdlib.h> // For rand
+#include <time.h>   // For srand
 
 // Some useful data structures
 typedef unsigned char byte;
@@ -74,7 +76,7 @@ void bignum_add(bignum *a, bignum *b) {
   }
 }
 
-// Do a - b, storing the result in a, returning nonzero if b is bigger
+// Do a -= b, storing the result in a, returning nonzero if b is bigger
 int bignum_subtract(bignum *a, bignum *b) {
   int borrow=0;
   for (int i=0;i<BIGNUM_MAX_BYTES;i++) {
@@ -120,13 +122,30 @@ void bignum_mult1(bignum *a, bignum *out, int mult) {
 }
 
 // Shift left by whole digits, eg make a bignum even bigger
-void bignum_shiftleft(bignum *a, int digits) {
+void bignum_shiftleft_8bits(bignum *a, int digits) {
   if (digits==0) return;
   memcpy(a->bytes+digits,a->bytes,BIGNUM_MAX_BYTES-digits); // Move the digits
   memset(a->bytes,0,digits); // zero out the new bottom digits
 }
 
+// Shifts a bignum left one bit (making it bigger)
+void bignum_shiftleft_onebit(bignum *a) {
+  for (int i=BIGNUM_MAX_BYTES-1;i>0;i--) {
+    a->bytes[i] = (a->bytes[i]<<1) + (a->bytes[i-1]>>7); // Shift this one left, and grab the high bit from below
+  }
+  a->bytes[0] <<= 1; // Sort out the smallest byte (it can't grab a bit)
+}
+
+// Shifts a bignum right one bit (making it smaller)
+void bignum_shiftright_onebit(bignum *a) {
+  for (int i=0;i<BIGNUM_MAX_BYTES-1;i++) {
+    a->bytes[i] = (a->bytes[i]>>1) + ((a->bytes[i+1]&1)<<7); // Shift this one right, plus borrow a bit from the next
+  }
+  a->bytes[BIGNUM_MAX_BYTES-1] >>= 1; // Sort out the last byte (it can't borrow a bit)
+}
+
 // Multiply two bignums, storing the result in a
+// Uses the method you were taught at school. Not the fastest but it'll do.
 void bignum_mult(bignum *a, bignum *b, bignum *out) {
   bignum temp; // This is used to store the multiplication by each digit
   memset(&temp,0,sizeof(bignum)); // Clear the bignum first
@@ -134,21 +153,14 @@ void bignum_mult(bignum *a, bignum *b, bignum *out) {
   for (int i=0;i<BIGNUM_MAX_BYTES;i++) {
     if (b->bytes[i]) { // Save time by skipping multiplying by zero columns
       bignum_mult1(a,&temp,b->bytes[i]); // temp = a * single-digit-from-b
-      bignum_shiftleft(&temp,i); // temp is shifted to line up with the column we're using from b
+      bignum_shiftleft_8bits(&temp,i); // temp is shifted to line up with the column we're using from b
       bignum_add(out,&temp); // Add temp to the running total
     }
   }
 }
 
-// Shifts a bignum right one bit (making it smaller)
-void bignum_shiftright_onebit(bignum *a) {
-  for (int i=0;i<BIGNUM_MAX_BYTES-1;i++) {
-    a->bytes[i] = (a->bytes[i]>>1) + ((a->bytes[i+1]&1)<<7); // Shift this one right, plug borrow a bit from the next
-  }
-  a->bytes[BIGNUM_MAX_BYTES-1] >>= 1; // Sort out the last byte (it can't borrow a bit)
-}
-
 // Do a/b, and store the remainder in out
+// This uses the shift and subtract method
 void bignum_mod(bignum *a, bignum *b, bignum *out) {
   memcpy(out,a,sizeof(bignum)); // Start off with out=a, and whittle it down
   // Get the lengths
@@ -159,10 +171,12 @@ void bignum_mod(bignum *a, bignum *b, bignum *out) {
   bignum shifted;
   int byte_shifts = len_a-len_b+1;
   memcpy(&shifted,b,sizeof(bignum)); // Shifted is b, shifted to all sizes
-  bignum_shiftleft(&shifted,byte_shifts); // Now b is bigger than a
+  bignum_shiftleft_8bits(&shifted,byte_shifts); // Now b is bigger than a
+  bignum temp;
   // Now do a series of bit shifts on B, subtracting it from A each time
   for (int i=0;i<byte_shifts*8;i++) {
     bignum_shiftright_onebit(&shifted);
+    
     if (bignum_gte(out,&shifted))
       bignum_subtract(out,&shifted);
   }
@@ -177,34 +191,121 @@ int bignum_gzero(bignum *a) {
 }
 
 // Do base ^ power % mod
-void bignum_modpow(bignum *base, bignum *power, bignum *mod, bignum *out) {
- bignum temp;
- string_to_bignum("01", out); // result = 1
- while(bignum_gzero(power)) { // while power > 0
-   if (power->bytes[0]&1) {
-     bignum_mult(out,base,&temp); // temp = result*base
-     bignum_mod(&temp,mod,out); // result = temp % mod
-   }
-   bignum_mult(base,base,&temp); // temp = base*base
-   bignum_mod(&temp,mod,base); // base = temp % mod
-   bignum_shiftright_onebit(power); // power>>=1
- }
+// This does modular exponentiation using the right-to-left binary method
+// This is actually quite slow, mainly due to the mod function, but also the mult is slow too
+void bignum_modpow(bignum *in_base, bignum *in_power, bignum *mod, bignum *result) {
+  bignum temp, base, power;
+  memcpy(&base,in_base,sizeof(bignum)); // base = in_base (so we don't clobber the input)
+  memcpy(&power,in_power,sizeof(bignum)); // power = in_power (so we don't clobber the input)
+
+  string_to_bignum("01", result); // result = 1
+  
+  while(bignum_gzero(&power)) { // while power > 0
+    if (power.bytes[0]&1) {
+      bignum_mult(result,&base,&temp); // temp = result*base
+      bignum_mod(&temp,mod,result); // result = temp % mod
+    }
+    bignum_mult(&base,&base,&temp); // temp = base*base
+    bignum_mod(&temp,mod,&base); // base = temp % mod
+    bignum_shiftright_onebit(&power); // power>>=1
+  }
 }
 
-// Test it
+// Generates a big number up to the value of the maximum
+void bignum_rand(bignum *max,bignum *out) {
+  int len = bignum_length(max);
+  for (int i=0;i<BIGNUM_MAX_BYTES;i++) {
+    if (i<len-1) // For bytes less significant than the last one, make them random 0..255
+      out->bytes[i] = rand() % 256;
+    if (i==len-1) // For the byte of highest significance, make it random but not higher than max
+      out->bytes[i] = rand() % max->bytes[i];
+    if (i>=len) // For the restof the higher significance bytes, make then zero
+      out->bytes[i] = 0;
+  }
+}
+
+// Do a miller-rabin primality test
+// This is a C port of the code found here: http://snippets.dzone.com/posts/show/4636
+// This is unworkably slow, i think due to the mod and mult functions
+int bignum_isprime(bignum *n) {
+  bignum temp[7]; // Set up some handy bignums
+  string_to_bignum("00", &temp[0]); // temp[0]=0
+  string_to_bignum("01", &temp[1]); // temp[1]=1
+  string_to_bignum("02", &temp[2]); // ...
+  string_to_bignum("03", &temp[3]); 
+  string_to_bignum("04", &temp[4]); 
+  string_to_bignum("05", &temp[5]); 
+  string_to_bignum("06", &temp[6]);
+
+  if (!memcmp(n,&temp[2],sizeof(bignum))) return 1; // return true if n == 2
+  if (!memcmp(n,&temp[1],sizeof(bignum))) return 0; // return false if n == 1
+  if (n->bytes[0] & 1 == 0) return false; // return false n & 1 == 0 (even number test)
+  
+  int gt3 = bignum_gte(n, &temp[4]); // Is n > 3? (aka n>=4)
+  bignum mod6; bignum_mod(n, &temp[6], &mod6); //  mod6 = n % 6
+  int mod6not1 = memcmp(&mod6,&temp[1],sizeof(bignum)); // mod6not1 true if mod6 != 1
+  int mod6not5 = memcmp(&mod6,&temp[5],sizeof(bignum)); // mod6not5 true if mod6 != 5
+  if (gt3 && mod6not1 && mod6not5) return 0; // return false if n > 3 && n % 6 != 1 && n % 6 != 5
+  
+  bignum d;
+  memcpy(&d,n,sizeof(bignum)); // d = n
+  bignum_subtract(&d,&temp[1]); // d = n-1
+  
+  while (d.bytes[0] & 1 == 0) bignum_shiftright_onebit(&d); // d >>= 1 while d & 1 == 0
+  
+  bignum nsub1, nsub2;
+  memcpy(&nsub1,n,sizeof(bignum)); // nsub1 = n
+  bignum_subtract(&nsub1,&temp[1]); // nsub1 = n-1
+  memcpy(&nsub2,n,sizeof(bignum)); // nsub2 = n
+  bignum_subtract(&nsub2,&temp[2]); // nsub2 = n-2
+  
+  for (int k=0;k<20;k++) { // 20.times do
+    bignum a; // Do: a = rand(n-2) + 1
+    bignum_rand(&nsub2,&a); // a = rand(n-2)
+    bignum_add(&a,&temp[1]); // a += 1
+
+    bignum t;
+    memcpy(&t,&d,sizeof(bignum)); // t = d
+
+    bignum y;
+    bignum_modpow(&a, &t, n, &y); // y = mod_pow(a,t,n)
+
+    // while t != n-1 && y != 1 && y != n-1
+    while (memcmp(&t, &nsub1, sizeof(bignum)) &&
+           memcmp(&y, &temp[1], sizeof(bignum)) &&
+           memcmp(&y, &nsub1, sizeof(bignum))) {
+      bignum ysqr; // Do: y = (y*y) % n
+      bignum_mult(&y,&y,&ysqr); // ysqr = y*y
+      bignum_mod(&ysqr,n,&y); // y = ysqr % n
+      
+      bignum_shiftleft_onebit(&t); // t <<= 1
+    }
+    
+    // return false if y != n-1 && t & 1 == 0
+    if (memcmp(&y, &nsub1, sizeof(bignum)) && t.bytes[0]&1==0) return 0; 
+  }
+  return 1;
+}
+
+// Test it all out
 int main(void) {
-  bignum p, q, n, m, e;
+  srand(time(NULL)); // Seed the randomiser
+
+  bignum p, q, n, m, e, d;
   string_to_bignum(p_str, &p);
   string_to_bignum(q_str, &q);
   string_to_bignum(n_str, &n);
   string_to_bignum(m_str, &m);
   string_to_bignum(e_str, &e);
-  print_bignum(&p, "P prime");
-  print_bignum(&q, "Q prime");
-  print_bignum(&n, "N modulus");
-  
-  // Test %
+  string_to_bignum(d_str, &d);
+
+  // Test encryption
   bignum c;
   bignum_modpow(&m, &e, &n, &c); // Encrypt: c = m^e mod n
-  print_bignum(&c, "C");
+  print_bignum(&c, "C cryptotext");
+  
+  // Decryption
+  bignum a;
+  bignum_modpow(&c, &d, &n, &a); // Decrypt: a = c^d mod n
+  print_bignum(&a, "Decrypted");
 }
