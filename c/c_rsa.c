@@ -305,7 +305,10 @@ int main(void) {
   print_bignum(&c, "C cryptotext");
   
   // Decryption
+  printf ("Decrypting...\r\n");
   bignum a;
   bignum_modpow(&c, &d, &n, &a); // Decrypt: a = c^d mod n
   print_bignum(&a, "Decrypted");
+
+  printf ("Took %.2fs\r\n", clock()/1000.0);
 }
