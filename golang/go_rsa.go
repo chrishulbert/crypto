@@ -38,24 +38,6 @@ func create_random_prime(bits int) (prime *big.Int) {
   return // This is just here to keep the compiler happy
 }
 
-// Does base ^ power % mod using the 
-// http://en.wikipedia.org/wiki/Modular_exponentiation
-func mod_exp(base, power, mod *big.Int) (result *big.Int) {
-  one := big.NewInt(1) // Useful constants
-  zero := big.NewInt(0)
-  result = big.NewInt(1) // result = 1
-  for power.Cmp(zero) > 0 { // while power > 0
-    if new(big.Int).And(power,one).Cmp(one) == 0 { // if power & 1 == 1
-      result.Mul(result, base) // result *= base
-      result.Mod(result, mod)  // result %= mod
-    }
-    base.Mul(base, base) // base *= base
-    base.Mod(base, mod)  // base %= mod
-    power.Rsh(power, 1)  // power >>= 1
-  }
-  return
-}
-
 // Test the RSA implementation
 func main() {
   println("Test RSA crypto")
@@ -91,10 +73,10 @@ func main() {
   fmt.Printf("Message (m):\r\n %x\r\n", m)
   
   // Encrypt it: c = m^e mod n
-  c := mod_exp(m, e, n)
+  c := new(big.Int).Exp(m, e, n)
   fmt.Printf("Crypto-text (c):\r\n %x\r\n", c)
   
   // Decrypt it: m = c^d mod n
-  a := mod_exp(c, d, n)
+  a := new(big.Int).Exp(c, d, n)
   fmt.Printf("Message (c):\r\n %x\r\n", a)
 }
