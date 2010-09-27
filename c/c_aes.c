@@ -5,6 +5,7 @@
 // http://en.wikipedia.org/wiki/Rijndael_key_schedule
 // http://en.wikipeia.org/wiki/Rijndael_mix_columns
 // http://en.wikipedia.org/wiki/Rijndael_S-box
+// This code is public domain, or any OSI-approved license, your choice. No warranty.
 
 #include <stdio.h>
 #include <string.h>
@@ -26,7 +27,8 @@ byte lookup_g14 []={0x00,0x0e,0x1c,0x12,0x38,0x36,0x24,0x2a,0x70,0x7e,0x6c,0x62,
 
 // Xor's all elements in a n byte array a by b
 void xor(byte *a, byte *b, int n) {
-  for (int i=0;i<n;i++)
+  int i;
+  for (i=0;i<n;i++)
     a[i] ^= b[i];
 }
 
@@ -204,7 +206,8 @@ void DecryptAES(byte *c, byte *key, byte *m) {
 // Pretty-print a key (or any smallish buffer) onto screen as hex
 void Pretty(byte* b,int len,char* label)
 {
-  char out[100],i;
+  char out[100];
+  int i;
   for (i=0;i<len;i++)
     sprintf(out+i*2,"%02x",b[i]);
 
@@ -228,4 +231,6 @@ int main(void)
 
   DecryptAES(encrypted,key,decrypted);
   Pretty(decrypted,16,"Decrypted:   ");
+  
+  return 0;
 }
