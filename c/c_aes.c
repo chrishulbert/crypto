@@ -11,7 +11,7 @@
 #include <string.h>
 
 typedef unsigned char byte;
- 
+
 // Here are all the lookup tables for the row shifts, rcon, s-boxes, and galois field multiplications
 static const byte shift_rows_table[]     = {0,5,10,15,4,9,14,3,8,13,2,7,12,1,6,11};
 static const byte shift_rows_table_inv[] = {0,13,10,7,4,1,14,11,8,5,2,15,12,9,6,3};
@@ -165,210 +165,214 @@ static const byte lookup_g14[] = {
 
 // Xor's all elements in a n byte array a by b
 static void xor(byte *a, const byte *b, int n) {
-  int i;
-  for (i=0;i<n;i++)
-    a[i] ^= b[i];
+    int i;
+    for (i=0; i<n; i++) {
+        a[i] ^= b[i];
+    }
 }
 
 // Xor the current cipher state by a specific round key
 static void xor_round_key(byte *state, const byte *keys, int round) {
-  xor(state,keys+round*16,16);
+    xor(state,keys+round*16,16);
 }
 
 // Apply and reverse the rijndael s-box to all elements in an array
 // http://en.wikipedia.org/wiki/Rijndael_S-box
 static void sub_bytes(byte *a,int n) {
-  int i;
-  for (i=0;i<n;i++)
-    a[i] = lookup_sbox[a[i]];
+    int i;
+    for (i=0; i<n; i++) {
+        a[i] = lookup_sbox[a[i]];
+    }
 }
 static void sub_bytes_inv(byte *a,int n) {
-  int i;
-  for (i=0;i<n;i++)
-    a[i] = lookup_sbox_inv[a[i]];
+    int i;
+    for (i=0; i<n; i++) {
+        a[i] = lookup_sbox_inv[a[i]];
+    }
 }
 
 // Perform the core key schedule transform on 4 bytes, as part of the key expansion process
 // http://en.wikipedia.org/wiki/Rijndael_key_schedule#Key_schedule_core
-static void key_schedule_core(byte *a, int i) { 
-  byte temp = a[0];     // Rotate the output eight bits to the left
-  a[0]=a[1];
-  a[1]=a[2];
-  a[2]=a[3];
-  a[3]=temp;
-  sub_bytes(a,4);       // Apply Rijndael's S-box on all four individual bytes in the output word
-  a[0]^=lookup_rcon[i]; // On just the first (leftmost) byte of the output word, perform the rcon operation with i
-                        // as the input, and exclusive or the rcon output with the first byte of the output word
+static void key_schedule_core(byte *a, int i) {
+    byte temp = a[0];     // Rotate the output eight bits to the left
+    a[0]=a[1];
+    a[1]=a[2];
+    a[2]=a[3];
+    a[3]=temp;
+    sub_bytes(a,4);       // Apply Rijndael's S-box on all four individual bytes in the output word
+    a[0]^=lookup_rcon[i]; // On just the first (leftmost) byte of the output word, perform the rcon operation with i
+    // as the input, and exclusive or the rcon output with the first byte of the output word
 }
 
 // Expand the 16-byte key to 11 round keys (176 bytes)
 // http://en.wikipedia.org/wiki/Rijndael_key_schedule#The_key_schedule
 static void expand_key(const byte *key, byte *keys) {
-  int bytes=16;             // The count of how many bytes we've created so far
-  int i=1;                  // The rcon iteration value i is set to 1
-  int j;                    // For repeating the second stage 3 times
-  byte t[4];                // Temporary working area known as 't' in the Wiki article
-  memcpy(keys,key,16);      // The first 16 bytes of the expanded key are simply the encryption key
-  
-  while (bytes<176) {       // Until we have 176 bytes of expanded key, we do the following:
-    memcpy(t,keys+bytes-4,4);          // We assign the value of the previous four bytes in the expanded key to t
-    key_schedule_core(t, i);           // We perform the key schedule core on t, with i as the rcon iteration value
-    i++;                               // We increment i by 1
-    xor(t,keys+bytes-16,4);            // We exclusive-or t with the four-byte block 16 bytes before the new expanded key. 
-    memcpy(keys+bytes,t,4);            // This becomes the next 4 bytes in the expanded key
-    bytes+=4;                          // Keep track of how many expanded key bytes we've added
+    int bytes=16;             // The count of how many bytes we've created so far
+    int i=1;                  // The rcon iteration value i is set to 1
+    int j;                    // For repeating the second stage 3 times
+    byte t[4];                // Temporary working area known as 't' in the Wiki article
+    memcpy(keys,key,16);      // The first 16 bytes of the expanded key are simply the encryption key
 
-    // We then do the following three times to create the next twelve bytes
-    for (j=0;j<3;j++) {
-      memcpy(t,keys+bytes-4,4);          // We assign the value of the previous 4 bytes in the expanded key to t
-      xor(t,keys+bytes-16,4);            // We exclusive-or t with the four-byte block n bytes before
-      memcpy(keys+bytes,t,4);            // This becomes the next 4 bytes in the expanded key
-      bytes+=4;                          // Keep track of how many expanded key bytes we've added
+    while (bytes<176) {       // Until we have 176 bytes of expanded key, we do the following:
+        memcpy(t,keys+bytes-4,4);          // We assign the value of the previous four bytes in the expanded key to t
+        key_schedule_core(t, i);           // We perform the key schedule core on t, with i as the rcon iteration value
+        i++;                               // We increment i by 1
+        xor(t,keys+bytes-16,4);            // We exclusive-or t with the four-byte block 16 bytes before the new expanded key.
+        memcpy(keys+bytes,t,4);            // This becomes the next 4 bytes in the expanded key
+        bytes+=4;                          // Keep track of how many expanded key bytes we've added
+
+        // We then do the following three times to create the next twelve bytes
+        for (j=0; j<3; j++) {
+            memcpy(t,keys+bytes-4,4);          // We assign the value of the previous 4 bytes in the expanded key to t
+            xor(t,keys+bytes-16,4);            // We exclusive-or t with the four-byte block n bytes before
+            memcpy(keys+bytes,t,4);            // This becomes the next 4 bytes in the expanded key
+            bytes+=4;                          // Keep track of how many expanded key bytes we've added
+        }
     }
-  }
 }
 
 // Apply / reverse the shift rows step on the 16 byte cipher state
 // http://en.wikipedia.org/wiki/Advanced_Encryption_Standard#The_ShiftRows_step
 static void shift_rows(byte *state) {
-  int i;
-  byte temp[16];
-  memcpy(temp,state,16);
-  for (i=0;i<16;i++)
-    state[i]=temp[shift_rows_table[i]];
+    int i;
+    byte temp[16];
+    memcpy(temp,state,16);
+    for (i=0; i<16; i++) {
+        state[i]=temp[shift_rows_table[i]];
+    }
 }
 static void shift_rows_inv(byte *state) {
-  int i;
-  byte temp[16];
-  memcpy(temp,state,16);
-  for (i=0;i<16;i++)
-    state[i]=temp[shift_rows_table_inv[i]];
+    int i;
+    byte temp[16];
+    memcpy(temp,state,16);
+    for (i=0; i<16; i++) {
+        state[i]=temp[shift_rows_table_inv[i]];
+    }
 }
 
 // Perform the mix columns matrix on one column of 4 bytes
 // http://en.wikipedia.org/wiki/Rijndael_mix_columns
 static void mix_col (byte *state) {
-  byte a0 = state[0];
-  byte a1 = state[1];
-  byte a2 = state[2];
-  byte a3 = state[3];
-  state[0] = lookup_g2[a0] ^ lookup_g3[a1] ^ a2 ^ a3;
-  state[1] = lookup_g2[a1] ^ lookup_g3[a2] ^ a3 ^ a0;
-  state[2] = lookup_g2[a2] ^ lookup_g3[a3] ^ a0 ^ a1;
-  state[3] = lookup_g2[a3] ^ lookup_g3[a0] ^ a1 ^ a2;
+    byte a0 = state[0];
+    byte a1 = state[1];
+    byte a2 = state[2];
+    byte a3 = state[3];
+    state[0] = lookup_g2[a0] ^ lookup_g3[a1] ^ a2 ^ a3;
+    state[1] = lookup_g2[a1] ^ lookup_g3[a2] ^ a3 ^ a0;
+    state[2] = lookup_g2[a2] ^ lookup_g3[a3] ^ a0 ^ a1;
+    state[3] = lookup_g2[a3] ^ lookup_g3[a0] ^ a1 ^ a2;
 }
 
 // Perform the mix columns matrix on each column of the 16 bytes
 static void mix_cols (byte *state) {
-  mix_col(state);
-  mix_col(state+4);
-  mix_col(state+8);
-  mix_col(state+12);
+    mix_col(state);
+    mix_col(state+4);
+    mix_col(state+8);
+    mix_col(state+12);
 }
 
 // Perform the inverse mix columns matrix on one column of 4 bytes
 // http://en.wikipedia.org/wiki/Rijndael_mix_columns
 static void mix_col_inv (byte *state) {
-  byte a0 = state[0];
-  byte a1 = state[1];
-  byte a2 = state[2];
-  byte a3 = state[3];
-  state[0] = lookup_g14[a0] ^ lookup_g9[a3] ^ lookup_g13[a2] ^ lookup_g11[a1];
-  state[1] = lookup_g14[a1] ^ lookup_g9[a0] ^ lookup_g13[a3] ^ lookup_g11[a2];
-  state[2] = lookup_g14[a2] ^ lookup_g9[a1] ^ lookup_g13[a0] ^ lookup_g11[a3];
-  state[3] = lookup_g14[a3] ^ lookup_g9[a2] ^ lookup_g13[a1] ^ lookup_g11[a0];
+    byte a0 = state[0];
+    byte a1 = state[1];
+    byte a2 = state[2];
+    byte a3 = state[3];
+    state[0] = lookup_g14[a0] ^ lookup_g9[a3] ^ lookup_g13[a2] ^ lookup_g11[a1];
+    state[1] = lookup_g14[a1] ^ lookup_g9[a0] ^ lookup_g13[a3] ^ lookup_g11[a2];
+    state[2] = lookup_g14[a2] ^ lookup_g9[a1] ^ lookup_g13[a0] ^ lookup_g11[a3];
+    state[3] = lookup_g14[a3] ^ lookup_g9[a2] ^ lookup_g13[a1] ^ lookup_g11[a0];
 }
 
 // Perform the inverse mix columns matrix on each column of the 16 bytes
 static void mix_cols_inv (byte *state) {
-  mix_col_inv(state);
-  mix_col_inv(state+4);
-  mix_col_inv(state+8);
-  mix_col_inv(state+12);
+    mix_col_inv(state);
+    mix_col_inv(state+4);
+    mix_col_inv(state+8);
+    mix_col_inv(state+12);
 }
 
 // Encrypt a single 128 bit block by a 128 bit key using AES
 // http://en.wikipedia.org/wiki/Advanced_Encryption_Standard
 static void EncryptAES(const byte *msg, const byte *key, byte *c) {
-  int i; // To count the rounds
-  
-  // Key expansion
-  byte keys[176];
-  expand_key(key,keys);
-  
-  // First Round
-  memcpy(c, msg, 16);
-  xor_round_key(c,keys,0);
+    int i; // To count the rounds
 
-  // Middle rounds
-  for(i=0; i<9; i++) {
+    // Key expansion
+    byte keys[176];
+    expand_key(key,keys);
+
+    // First Round
+    memcpy(c, msg, 16);
+    xor_round_key(c,keys,0);
+
+    // Middle rounds
+    for(i=0; i<9; i++) {
+        sub_bytes(c,16);
+        shift_rows(c);
+        mix_cols(c);
+        xor_round_key(c, keys, i+1);
+    }
+
+    // Final Round
     sub_bytes(c,16);
     shift_rows(c);
-    mix_cols(c);
-    xor_round_key(c, keys, i+1);
-  }
-
-  // Final Round
-  sub_bytes(c,16);
-  shift_rows(c);
-  xor_round_key(c, keys, 10);
+    xor_round_key(c, keys, 10);
 }
 
 // Decrypt a single 128 bit block by a 128 bit key using AES
 // http://en.wikipedia.org/wiki/Advanced_Encryption_Standard
 static void DecryptAES(const byte *c, const byte *key, byte *m) {
-  int i; // To count the rounds
-  
-  // Key expansion
-  byte keys[176];
-  expand_key(key,keys);
-  
-  // Reverse the final Round
-  memcpy(m,c,16);
-  xor_round_key(m,keys,10);
-  shift_rows_inv(m);
-  sub_bytes_inv(m, 16);
-  
-  // Reverse the middle rounds
-  for (i=0; i<9; i++) {
-    xor_round_key(m,keys,9-i);
-    mix_cols_inv(m);
+    int i; // To count the rounds
+
+    // Key expansion
+    byte keys[176];
+    expand_key(key,keys);
+
+    // Reverse the final Round
+    memcpy(m,c,16);
+    xor_round_key(m,keys,10);
     shift_rows_inv(m);
     sub_bytes_inv(m, 16);
-  }
-  
-  // Reverse the first Round
-  xor_round_key(m, keys, 0);
+
+    // Reverse the middle rounds
+    for (i=0; i<9; i++) {
+        xor_round_key(m,keys,9-i);
+        mix_cols_inv(m);
+        shift_rows_inv(m);
+        sub_bytes_inv(m, 16);
+    }
+
+    // Reverse the first Round
+    xor_round_key(m, keys, 0);
 }
 
 // Pretty-print a key (or any smallish buffer) onto screen as hex
-static void Pretty(byte* b,int len,char* label)
-{
-  char out[100];
-  int i;
-  for (i=0;i<len;i++)
-    sprintf(out+i*2,"%02x",b[i]);
+static void Pretty(byte* b,int len,char* label) {
+    char out[100];
+    int i;
+    for (i=0; i<len; i++) {
+        sprintf(out+i*2,"%02x",b[i]);
+    }
 
-  printf("%s%s\r\n",label, out);
+    printf("%s%s\r\n",label, out);
 }
 
 // Test AES
-int main(void)
-{
-  byte key[] = {0x12,0x34,0x56,0x12,0x34,0x56,0x12,0x34,0x56,0x12,0x34,0x56,0x12,0x34,0x56,0x12};
-  byte msg[] = {0xab,0xcd,0xef,0xab,0xcd,0xef,0xab,0xcd,0xef,0xab,0xcd,0xef,0xab,0xcd,0xef,0xab};
-  byte encrypted[16], decrypted[16];
+int main(void) {
+    byte key[] = {0x12,0x34,0x56,0x12,0x34,0x56,0x12,0x34,0x56,0x12,0x34,0x56,0x12,0x34,0x56,0x12};
+    byte msg[] = {0xab,0xcd,0xef,0xab,0xcd,0xef,0xab,0xcd,0xef,0xab,0xcd,0xef,0xab,0xcd,0xef,0xab};
+    byte encrypted[16], decrypted[16];
 
-  printf("Test AES\r\n\n");
-  Pretty(key,16,"Key:         ");
-  Pretty(msg,16,"Original:    ");
+    printf("Test AES\r\n\n");
+    Pretty(key,16,"Key:         ");
+    Pretty(msg,16,"Original:    ");
 
-  EncryptAES(msg,key,encrypted);
-  printf("Encrypted should be: 85E5A3D7356A61E29A8AFA559AD67102\r\n");
-  Pretty(encrypted,16,"Encrypted:   ");
+    EncryptAES(msg,key,encrypted);
+    printf("Encrypted should be: 85E5A3D7356A61E29A8AFA559AD67102\r\n");
+    Pretty(encrypted,16,"Encrypted:   ");
 
-  DecryptAES(encrypted,key,decrypted);
-  Pretty(decrypted,16,"Decrypted:   ");
-  
-  return 0;
+    DecryptAES(encrypted,key,decrypted);
+    Pretty(decrypted,16,"Decrypted:   ");
+
+    return 0;
 }
