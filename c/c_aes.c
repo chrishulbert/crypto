@@ -347,7 +347,7 @@ static void DecryptAES(const byte *c, const byte *key, byte *m) {
 }
 
 // Pretty-print a key (or any smallish buffer) onto screen as hex
-static void Pretty(byte* b,int len,char* label) {
+static void Pretty(const byte* b,int len,char* label) {
     char out[100];
     int i;
     for (i=0; i<len; i++) {
