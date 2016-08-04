@@ -3,7 +3,7 @@
 // References:
 // http://en.wikipedia.org/wiki/Advanced_Encryption_Standard
 // http://en.wikipedia.org/wiki/Rijndael_key_schedule
-// http://en.wikipeia.org/wiki/Rijndael_mix_columns
+// http://en.wikipedia.org/wiki/Rijndael_mix_columns
 // http://en.wikipedia.org/wiki/Rijndael_S-box
 
 package main
